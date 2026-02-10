@@ -1,4 +1,4 @@
-# Reddit Shop (FashionReps)
+Fashionreps shop
 
 Local-only catalog built on Next.js + SQLite. It scrapes r/FashionReps daily, extracts items, media, seller links, inferred brand/type/price, and serves a clean e-commerce style catalog with filters.
 
