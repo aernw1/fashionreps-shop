@@ -91,16 +91,26 @@ export const fetchPostHtml = async (permalink: string): Promise<string | null> =
 export const fetchPostComments = async (
   permalink: string,
   opAuthor: string
-): Promise<ScrapedComment[]> => {
+): Promise<{ comments: ScrapedComment[]; ok: boolean }> => {
   const url = `https://www.reddit.com${permalink}.json?limit=50&raw_json=1`;
-  const response = await fetch(url, {
-    headers: { "User-Agent": REDDIT_USER_AGENT },
-  });
-  if (!response.ok) return [];
+  let response: Response;
+  try {
+    response = await fetchWithRetry(url, 3);
+  } catch {
+    return { comments: [], ok: false };
+  }
+  if (!response.ok) return { comments: [], ok: false };
 
-  const payload = (await response.json()) as Array<{
+  let payload: Array<{
     data?: { children?: Array<{ kind?: string; data?: any }> };
   }>;
+  try {
+    payload = (await response.json()) as Array<{
+      data?: { children?: Array<{ kind?: string; data?: any }> };
+    }>;
+  } catch {
+    return { comments: [], ok: false };
+  }
 
   const commentsListing = payload?.[1]?.data?.children ?? [];
   const comments: ScrapedComment[] = [];
@@ -132,7 +142,7 @@ export const fetchPostComments = async (
     }
   }
 
-  return comments;
+  return { comments, ok: true };
 };
 
 export const extractMedia = (post: RedditListingPost): ScrapedMedia[] => {

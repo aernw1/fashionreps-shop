@@ -71,14 +71,17 @@ describe("scraper integration", () => {
       },
     ]);
 
-    (fetchPostComments as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([
-      {
-        id: "c1",
-        author: "opUser",
-        body: "W2C https://seller.com/nike/hoodie",
-        isOp: true,
-      },
-    ]);
+    (fetchPostComments as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      comments: [
+        {
+          id: "c1",
+          author: "opUser",
+          body: "W2C https://seller.com/nike/hoodie",
+          isOp: true,
+        },
+      ],
+    });
 
     (fetchSellerPrice as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
       value: 120,

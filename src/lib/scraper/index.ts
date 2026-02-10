@@ -165,11 +165,12 @@ const scrapeFromJson = async (post: any): Promise<ScrapedPost | null> => {
   const permalink = post.permalink ?? "";
 
   const media = extractMedia(post);
-  const comments = await fetchPostComments(permalink, author);
+  const commentResult = await fetchPostComments(permalink, author);
+  const comments = commentResult.comments;
   const tags = extractTags(title + " " + (body ?? ""), flair);
   const commentSellerLinks = extractSellerLinks(comments.map((comment) => comment.body));
 
-  if (tags.includes("W2C") && commentSellerLinks.length === 0) {
+  if (tags.includes("W2C") && commentSellerLinks.length === 0 && commentResult.ok) {
     return null;
   }
 
