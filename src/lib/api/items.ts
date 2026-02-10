@@ -46,18 +46,18 @@ export const getItems = async (query: ItemsQuery) => {
 
   if (query.q) {
     where.OR = [
-      { title: { contains: query.q, mode: "insensitive" } },
-      { body: { contains: query.q, mode: "insensitive" } },
-      { author: { contains: query.q, mode: "insensitive" } },
+      { title: { contains: query.q } },
+      { body: { contains: query.q } },
+      { author: { contains: query.q } },
     ];
   }
 
   if (query.brand) {
-    where.brand = { equals: query.brand, mode: "insensitive" };
+    where.brand = { equals: query.brand };
   }
 
   if (query.type) {
-    where.type = { equals: query.type, mode: "insensitive" };
+    where.type = { equals: query.type };
   }
 
   if (query.minPrice || query.maxPrice) {
