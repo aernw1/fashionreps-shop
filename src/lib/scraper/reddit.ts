@@ -6,6 +6,8 @@ import type { ScrapedComment, ScrapedMedia } from "./types";
 const LISTING_URL =
   "https://www.reddit.com/r/FashionReps/new.json?limit=200&raw_json=1";
 const LISTING_HTML_URL = "https://old.reddit.com/r/FashionReps/new/";
+const LISTING_API_URL =
+  "https://api.reddit.com/r/FashionReps/new?limit=200&raw_json=1";
 
 export type RedditListingPost = {
   id: string;
@@ -26,7 +28,11 @@ export type RedditListingPost = {
 };
 
 export const fetchRedditListing = async (): Promise<RedditListingPost[]> => {
-  const response = await fetchWithRetry(LISTING_URL, 3);
+  let response = await fetchWithRetry(LISTING_URL, 3);
+
+  if (response.status === 429) {
+    response = await fetchWithRetry(LISTING_API_URL, 2);
+  }
 
   if (!response.ok) {
     throw new Error(`Reddit listing request failed: ${response.status}`);
@@ -48,14 +54,29 @@ export const fetchRedditListing = async (): Promise<RedditListingPost[]> => {
   return posts;
 };
 
-export const fetchListingHtml = async (): Promise<string> => {
-  const response = await fetchWithRetry(LISTING_HTML_URL, 2, {
+export const fetchListingHtml = async (url = LISTING_HTML_URL): Promise<string> => {
+  const response = await fetchWithRetry(url, 2, {
     Accept: "text/html",
   });
   if (!response.ok) {
     throw new Error(`Reddit HTML listing failed: ${response.status}`);
   }
   return response.text();
+};
+
+export const fetchListingHtmlPages = async (maxPages = 6) => {
+  let url: string | null = LISTING_HTML_URL;
+  const posts: ReturnType<typeof parseListingHtml> = [];
+
+  for (let page = 0; page < maxPages && url; page += 1) {
+    const html = await fetchListingHtml(url);
+    const { items, nextUrl } = parseListingHtmlWithNext(html);
+    posts.push(...items);
+    if (posts.length >= 200) break;
+    url = nextUrl;
+  }
+
+  return posts.slice(0, 200);
 };
 
 export const fetchPostHtml = async (permalink: string): Promise<string | null> => {
@@ -271,6 +292,13 @@ export const parseListingHtml = (html: string): Array<{
   });
 
   return posts;
+};
+
+export const parseListingHtmlWithNext = (html: string) => {
+  const items = parseListingHtml(html);
+  const $ = load(html);
+  const nextUrl = $("span.next-button a").attr("href") ?? null;
+  return { items, nextUrl };
 };
 
 export const extractHtmlSellerLinks = (html: string): string[] => {

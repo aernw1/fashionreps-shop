@@ -4,11 +4,10 @@ import { fetchListingWithPlaywright, fetchPostHtmlWithPlaywright } from "./playw
 import {
   extractHtmlSellerLinks,
   extractMedia,
-  fetchListingHtml,
+  fetchListingHtmlPages,
   fetchPostComments,
   fetchPostHtml,
   fetchRedditListing,
-  parseListingHtml,
   parseHtmlAuthor,
   parseHtmlBody,
   parseHtmlComments,
@@ -43,8 +42,7 @@ export const runScrape = async () => {
     console.warn("[scraper] JSON listing failed, falling back to Playwright", error);
     listingSource = "html";
     try {
-      const html = await fetchListingHtml();
-      listing = parseListingHtml(html);
+      listing = await fetchListingHtmlPages();
     } catch (htmlError) {
       console.warn("[scraper] HTML listing failed, falling back to Playwright", htmlError);
       listing = await fetchListingWithPlaywright();
