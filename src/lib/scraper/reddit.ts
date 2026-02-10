@@ -5,6 +5,7 @@ import type { ScrapedComment, ScrapedMedia } from "./types";
 
 const LISTING_URL =
   "https://www.reddit.com/r/FashionReps/new.json?limit=200&raw_json=1";
+const LISTING_HTML_URL = "https://old.reddit.com/r/FashionReps/new/";
 
 export type RedditListingPost = {
   id: string;
@@ -25,9 +26,7 @@ export type RedditListingPost = {
 };
 
 export const fetchRedditListing = async (): Promise<RedditListingPost[]> => {
-  const response = await fetch(LISTING_URL, {
-    headers: { "User-Agent": REDDIT_USER_AGENT },
-  });
+  const response = await fetchWithRetry(LISTING_URL, 3);
 
   if (!response.ok) {
     throw new Error(`Reddit listing request failed: ${response.status}`);
@@ -47,6 +46,25 @@ export const fetchRedditListing = async (): Promise<RedditListingPost[]> => {
   }
 
   return posts;
+};
+
+export const fetchListingHtml = async (): Promise<string> => {
+  const response = await fetchWithRetry(LISTING_HTML_URL, 2, {
+    Accept: "text/html",
+  });
+  if (!response.ok) {
+    throw new Error(`Reddit HTML listing failed: ${response.status}`);
+  }
+  return response.text();
+};
+
+export const fetchPostHtml = async (permalink: string): Promise<string | null> => {
+  const url = permalink.startsWith("http")
+    ? permalink
+    : `https://old.reddit.com${permalink}`;
+  const response = await fetchWithRetry(url, 2, { Accept: "text/html" });
+  if (!response.ok) return null;
+  return response.text();
 };
 
 export const fetchPostComments = async (
@@ -202,8 +220,58 @@ export const parseHtmlFlair = (html: string): string | null => {
   return flair || null;
 };
 
+export const parseListingHtml = (html: string): Array<{
+  id: string;
+  permalink: string;
+  title: string;
+  author: string;
+  createdUtc: number | null;
+  flair: string | null;
+}> => {
+  const $ = load(html);
+  const posts: Array<{
+    id: string;
+    permalink: string;
+    title: string;
+    author: string;
+    createdUtc: number | null;
+    flair: string | null;
+  }> = [];
+
+  $(".thing").each((_, element) => {
+    const id = $(element).attr("data-fullname")?.replace("t3_", "");
+    const title = $(element).find("a.title").text().trim();
+    const author = $(element).attr("data-author") || "unknown";
+    const permalink = $(element).find("a.comments").attr("href");
+    const flair = $(element).find("span.linkflairlabel").text().trim() || null;
+    const datetime = $(element).find("time").attr("datetime");
+    const createdUtc = datetime ? Math.floor(Date.parse(datetime) / 1000) : null;
+
+    if (!id || !permalink) return;
+
+    const pathname = (() => {
+      try {
+        return new URL(permalink).pathname;
+      } catch {
+        return permalink;
+      }
+    })();
+
+    posts.push({
+      id,
+      permalink: pathname,
+      title,
+      author,
+      createdUtc,
+      flair,
+    });
+  });
+
+  return posts;
+};
+
 export const extractHtmlSellerLinks = (html: string): string[] => {
-  const $ = cheerio.load(html);
+  const $ = load(html);
   const links = new Set<string>();
 
   $("a").each((_, element) => {
@@ -222,3 +290,35 @@ export const extractHtmlSellerLinks = (html: string): string[] => {
 const isImageUrl = (url: string): boolean => {
   return /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url);
 };
+
+const fetchWithRetry = async (
+  url: string,
+  attempts: number,
+  extraHeaders: Record<string, string> = {}
+) => {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": REDDIT_USER_AGENT,
+          Accept: "application/json",
+          ...extraHeaders,
+        },
+      });
+      if (response.status === 429 && attempt < attempts) {
+        await sleep(800 * attempt);
+        continue;
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) {
+        await sleep(800 * attempt);
+      }
+    }
+  }
+  throw lastError ?? new Error("Request failed");
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

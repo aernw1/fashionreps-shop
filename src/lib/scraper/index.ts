@@ -4,8 +4,11 @@ import { fetchListingWithPlaywright, fetchPostHtmlWithPlaywright } from "./playw
 import {
   extractHtmlSellerLinks,
   extractMedia,
+  fetchListingHtml,
   fetchPostComments,
+  fetchPostHtml,
   fetchRedditListing,
+  parseListingHtml,
   parseHtmlAuthor,
   parseHtmlBody,
   parseHtmlComments,
@@ -39,7 +42,13 @@ export const runScrape = async () => {
   } catch (error) {
     console.warn("[scraper] JSON listing failed, falling back to Playwright", error);
     listingSource = "html";
-    listing = await fetchListingWithPlaywright();
+    try {
+      const html = await fetchListingHtml();
+      listing = parseListingHtml(html);
+    } catch (htmlError) {
+      console.warn("[scraper] HTML listing failed, falling back to Playwright", htmlError);
+      listing = await fetchListingWithPlaywright();
+    }
   }
 
   for (const entry of listing) {
@@ -197,7 +206,10 @@ const scrapeFromHtml = async (entry: {
   flair: string | null;
 }): Promise<ScrapedPost | null> => {
   if (!entry?.id) return null;
-  const html = await fetchPostHtmlWithPlaywright(entry.permalink);
+  let html = await fetchPostHtml(entry.permalink);
+  if (!html) {
+    html = await fetchPostHtmlWithPlaywright(entry.permalink);
+  }
 
   const title = parseHtmlTitle(html) ?? entry.title;
   const body = parseHtmlBody(html);

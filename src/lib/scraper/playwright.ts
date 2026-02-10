@@ -1,5 +1,5 @@
-import { load } from "cheerio";
 import { REDDIT_USER_AGENT } from "./config";
+import { parseListingHtml } from "./reddit";
 
 const LISTING_URL = "https://old.reddit.com/r/FashionReps/new/";
 
@@ -40,40 +40,4 @@ export const fetchPostHtmlWithPlaywright = async (permalink: string): Promise<st
   } finally {
     await browser.close();
   }
-};
-
-export const parseListingHtml = (html: string): HtmlPostListing[] => {
-  const $ = load(html);
-  const posts: HtmlPostListing[] = [];
-
-  $(".thing").each((_, element) => {
-    const id = $(element).attr("data-fullname")?.replace("t3_", "");
-    const title = $(element).find("a.title").text().trim();
-    const author = $(element).attr("data-author") || "unknown";
-    const permalink = $(element).find("a.comments").attr("href");
-    const flair = $(element).find("span.linkflairlabel").text().trim() || null;
-    const datetime = $(element).find("time").attr("datetime");
-    const createdUtc = datetime ? Math.floor(Date.parse(datetime) / 1000) : null;
-
-    if (!id || !permalink) return;
-
-    const pathname = (() => {
-      try {
-        return new URL(permalink).pathname;
-      } catch {
-        return permalink;
-      }
-    })();
-
-    posts.push({
-      id,
-      permalink: pathname,
-      title,
-      author,
-      createdUtc,
-      flair,
-    });
-  });
-
-  return posts;
 };
