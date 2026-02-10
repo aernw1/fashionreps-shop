@@ -1,0 +1,83 @@
+// Prisma schema for Reddit-Shop
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Post {
+  id         String   @id
+  title      String
+  body       String?
+  author     String
+  createdUtc Int      @map("created_utc")
+  flair      String?
+  permalink  String
+  brand      String?
+  type       String?
+
+  media       Media[]
+  sellerLinks SellerLink[]
+  comments    Comment[]
+  tags        Tag[]
+
+  @@index([createdUtc])
+  @@index([brand])
+  @@index([type])
+  @@map("posts")
+}
+
+model Media {
+  id     Int    @id @default(autoincrement())
+  postId String @map("post_id")
+  url    String
+  kind   String
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, url])
+  @@map("media")
+}
+
+model SellerLink {
+  id            Int     @id @default(autoincrement())
+  postId        String  @map("post_id")
+  url           String
+  domain        String
+  priceValue    Float?  @map("price_value")
+  priceCurrency String? @map("price_currency")
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, url])
+  @@index([domain])
+  @@index([priceValue])
+  @@map("seller_links")
+}
+
+model Comment {
+  id     String @id
+  postId String @map("post_id")
+  author String
+  body   String
+  isOp   Boolean @map("is_op")
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+model Tag {
+  id     Int    @id @default(autoincrement())
+  postId String @map("post_id")
+  tag    String
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, tag])
+  @@map("tags")
+}
