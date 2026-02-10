@@ -176,14 +176,19 @@ const scrapeFromJson = async (post: any): Promise<ScrapedPost | null> => {
   }
 
   const corpus = buildCorpus(title, body, ...comments.map((comment) => comment.body));
+  const type = inferTypeFromText(corpus);
+  const sellerUrls = extractSellerLinks([title, body ?? "", ...comments.map((comment) => comment.body)]);
+
+  if (sellerUrls.length === 0 && !type) {
+    return null;
+  }
   const sellerLinks = await resolveSellerLinks(
-    extractSellerLinks([title, body ?? "", ...comments.map((comment) => comment.body)]),
+    sellerUrls,
     corpus
   );
 
   const brand = inferBrandFromUrls(sellerLinks.map((link) => link.url)) ??
     inferBrandFromText(corpus);
-  const type = inferTypeFromText(corpus);
 
   return {
     id: post.id,
@@ -234,19 +239,24 @@ const scrapeFromHtml = async (entry: {
   }
 
   const corpus = buildCorpus(title, body, ...comments.map((comment) => comment.body));
+  const type = inferTypeFromText(corpus);
+  const sellerUrls = extractSellerLinks([
+    title,
+    body ?? "",
+    ...comments.map((comment) => comment.body),
+    ...extractHtmlSellerLinks(html),
+  ]);
+
+  if (sellerUrls.length === 0 && !type) {
+    return null;
+  }
   const sellerLinks = await resolveSellerLinks(
-    extractSellerLinks([
-      title,
-      body ?? "",
-      ...comments.map((comment) => comment.body),
-      ...extractHtmlSellerLinks(html),
-    ]),
+    sellerUrls,
     corpus
   );
 
   const brand = inferBrandFromUrls(sellerLinks.map((link) => link.url)) ??
     inferBrandFromText(corpus);
-  const type = inferTypeFromText(corpus);
 
   return {
     id: entry.id,
