@@ -15,9 +15,13 @@ const formatPrice = (value: number | null, currency: string | null) => {
 export default async function ItemDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: { id?: string } | Promise<{ id?: string }>;
 }) {
-  const item = await getItemById(params.id);
+  const resolvedParams = await Promise.resolve(params);
+  const id = resolvedParams?.id;
+  if (!id) notFound();
+
+  const item = await getItemById(id);
   if (!item) notFound();
 
   const primaryPrice = item.sellerLinks[0]
