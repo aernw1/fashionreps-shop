@@ -88,6 +88,7 @@ export const fetchPostComments = async (
     if (child.kind !== "t1" || !child.data) continue;
     const comment = child.data;
     if (!comment.body) continue;
+    if (isAutoModerator(comment.author)) continue;
 
     comments.push({
       id: comment.id,
@@ -100,6 +101,7 @@ export const fetchPostComments = async (
     for (const reply of replies) {
       if (reply.kind !== "t1" || !reply.data) continue;
       if (reply.data.author !== opAuthor) continue;
+      if (isAutoModerator(reply.data.author)) continue;
       comments.push({
         id: reply.data.id,
         author: reply.data.author ?? "unknown",
@@ -147,6 +149,7 @@ export const parseHtmlComments = (html: string, opAuthor: string) => {
       $(element).find("a.author").first().text().trim();
     const body = $(element).find(".usertext-body").text().trim();
     if (!author || !body) return;
+    if (isAutoModerator(author)) return;
 
     const id =
       $(element).attr("data-fullname")?.replace("t1_", "") ||
@@ -289,6 +292,11 @@ export const extractHtmlSellerLinks = (html: string): string[] => {
 
 const isImageUrl = (url: string): boolean => {
   return /\.(png|jpe?g|gif|webp)(\?|$)/i.test(url);
+};
+
+const isAutoModerator = (author?: string | null) => {
+  if (!author) return false;
+  return author.toLowerCase() === "automoderator";
 };
 
 const fetchWithRetry = async (
