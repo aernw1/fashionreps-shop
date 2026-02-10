@@ -11,6 +11,7 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "scrape": "tsx src/scripts/scrape.ts",
+    "scrape:reset": "tsx src/scripts/scrape-reset.ts",
     "scraper:daemon": "tsx src/scripts/scraper-daemon.ts",
     "test": "vitest run",
     "test:watch": "vitest"
