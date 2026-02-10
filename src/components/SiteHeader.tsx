@@ -25,15 +25,8 @@ export default function SiteHeader({ searchValue, onSearchChange }: SiteHeaderPr
       <div className="nav">
         <div className="page-shell nav-inner">
           <Link href="/" className="logo">
-            RS
+            FS
           </Link>
-          <nav className="nav-links">
-            <span>New</span>
-            <span>Men</span>
-            <span>Women</span>
-            <span>Kids</span>
-            <span>Sport</span>
-          </nav>
           {onSearchChange && (
             <label className="nav-search">
               <span className="sr-only">Search</span>
