@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import SiteHeader from "@/components/SiteHeader";
+import { deriveItemName } from "@/lib/item-name";
 
 type CatalogItem = {
   id: string;
@@ -78,131 +80,148 @@ export default function CatalogPage() {
 
   const brands = data?.facets?.brands ?? [];
   const types = data?.facets?.types ?? [];
+  const headerTitle = query.brand
+    ? `${query.brand} (${data?.total ?? 0})`
+    : `Catalog (${data?.total ?? 0})`;
 
   return (
-    <div className="catalog-shell">
-      <section className="panel p-10 mb-10 relative overflow-hidden">
-        <div className="absolute -top-24 -right-24 h-56 w-56 rounded-full bg-[radial-gradient(circle,#d4552a55,transparent_70%)]" />
-        <div className="absolute bottom-0 left-0 h-48 w-48 rounded-full bg-[radial-gradient(circle,#2f6f6d44,transparent_70%)]" />
-        <div className="relative z-10">
-          <span className="badge">Local Catalog</span>
-          <h1 className="text-4xl md:text-5xl mt-4">Reddit Shop</h1>
-          <p className="mt-3 text-lg text-[color:var(--muted)] max-w-2xl">
-            Daily pulls from r/FashionReps, distilled into a clean catalog.
-            Filter by brand, type, and price, then jump straight to seller links.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button className="button-primary">Browse Drops</button>
-            <a className="button-secondary" href="/api/items">
-              API Preview
-            </a>
+    <div>
+      <SiteHeader
+        searchValue={query.q}
+        onSearchChange={(value) =>
+          setQuery((prev) => ({ ...prev, q: value, page: 1 }))
+        }
+      />
+
+      <div className="catalog-shell">
+        <div className="control-row">
+          <div>
+            <h1 className="section-title">{headerTitle}</h1>
+            <p className="section-subtitle">
+              {loading ? "Loading catalog..." : "Latest FashionReps drops"}
+            </p>
+          </div>
+          <div>
+            <label className="section-subtitle">Sort</label>
+            <select
+              value={query.sort}
+              onChange={(event) =>
+                setQuery((prev) => ({ ...prev, sort: event.target.value, page: 1 }))
+              }
+            >
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="price_asc">Price: Low to High</option>
+              <option value="price_desc">Price: High to Low</option>
+            </select>
           </div>
         </div>
-      </section>
 
-      <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
-        <aside className="panel p-6 h-fit sticky top-8">
-          <h2 className="text-xl mb-4">Filter the drop</h2>
-          <label className="block text-sm font-semibold">Search</label>
-          <input
-            className="mt-2 w-full rounded-full border border-[color:var(--border)] bg-white px-4 py-2"
-            placeholder="Brand, seller, keyword"
-            value={query.q}
-            onChange={(event) =>
-              setQuery((prev) => ({ ...prev, q: event.target.value, page: 1 }))
-            }
-          />
-
-          <div className="mt-5 space-y-4">
-            <div>
-              <label className="block text-sm font-semibold">Brand</label>
-              <select
-                className="mt-2 w-full rounded-full border border-[color:var(--border)] bg-white px-4 py-2"
-                value={query.brand}
-                onChange={(event) =>
-                  setQuery((prev) => ({ ...prev, brand: event.target.value, page: 1 }))
-                }
-              >
-                <option value="">All brands</option>
-                {brands.map((brand) => (
-                  <option key={brand} value={brand}>
-                    {brand}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold">Type</label>
-              <select
-                className="mt-2 w-full rounded-full border border-[color:var(--border)] bg-white px-4 py-2"
-                value={query.type}
-                onChange={(event) =>
-                  setQuery((prev) => ({ ...prev, type: event.target.value, page: 1 }))
-                }
-              >
-                <option value="">All types</option>
-                {types.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
+          <aside className="filters-panel">
+            <h3>Filters</h3>
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold">Min</label>
-                <input
-                  type="number"
-                  className="mt-2 w-full rounded-full border border-[color:var(--border)] bg-white px-4 py-2"
-                  placeholder="$"
-                  value={query.minPrice}
+                <label>Brand</label>
+                <select
+                  value={query.brand}
                   onChange={(event) =>
-                    setQuery((prev) => ({ ...prev, minPrice: event.target.value, page: 1 }))
+                    setQuery((prev) => ({ ...prev, brand: event.target.value, page: 1 }))
                   }
-                />
+                >
+                  <option value="">All brands</option>
+                  {brands.map((brand) => (
+                    <option key={brand} value={brand}>
+                      {brand}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold">Max</label>
-                <input
-                  type="number"
-                  className="mt-2 w-full rounded-full border border-[color:var(--border)] bg-white px-4 py-2"
-                  placeholder="$"
-                  value={query.maxPrice}
+                <label>Type</label>
+                <select
+                  value={query.type}
                   onChange={(event) =>
-                    setQuery((prev) => ({ ...prev, maxPrice: event.target.value, page: 1 }))
+                    setQuery((prev) => ({ ...prev, type: event.target.value, page: 1 }))
                   }
-                />
+                >
+                  <option value="">All types</option>
+                  {types.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label>Min price</label>
+                  <input
+                    type="number"
+                    value={query.minPrice}
+                    onChange={(event) =>
+                      setQuery((prev) => ({ ...prev, minPrice: event.target.value, page: 1 }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label>Max price</label>
+                  <input
+                    type="number"
+                    value={query.maxPrice}
+                    onChange={(event) =>
+                      setQuery((prev) => ({ ...prev, maxPrice: event.target.value, page: 1 }))
+                    }
+                  />
+                </div>
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-semibold">Sort</label>
-              <select
-                className="mt-2 w-full rounded-full border border-[color:var(--border)] bg-white px-4 py-2"
-                value={query.sort}
-                onChange={(event) =>
-                  setQuery((prev) => ({ ...prev, sort: event.target.value, page: 1 }))
-                }
-              >
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
-                <option value="price_asc">Price: Low to High</option>
-                <option value="price_desc">Price: High to Low</option>
-              </select>
-            </div>
-          </div>
-        </aside>
+          </aside>
 
-        <section>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl">Latest finds</h2>
-              <p className="text-sm text-[color:var(--muted)]">
-                {loading ? "Loading catalog..." : `${data?.total ?? 0} items tracked`}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
+          <section>
+            {loading && (
+              <div className="product-grid">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="product-card">
+                    <div className="h-[280px] bg-[#f0f0f0]" />
+                    <div className="h-3 w-3/4 bg-[#ededed]" />
+                    <div className="h-3 w-1/2 bg-[#ededed]" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!loading && (
+              <div className="product-grid">
+                {data?.items.map((item) => {
+                  const price = item.sellerLinks[0]
+                    ? formatPrice(item.sellerLinks[0].priceValue, item.sellerLinks[0].priceCurrency)
+                    : null;
+                  const displayName = deriveItemName(item.title) || item.title;
+
+                  return (
+                    <Link key={item.id} href={`/items/${item.id}`} className="product-card">
+                      {item.media[0]?.url ? (
+                        <img src={item.media[0].url} alt={displayName} />
+                      ) : (
+                        <div className="h-[280px] bg-[#f0f0f0] flex items-center justify-center text-xs text-[color:var(--muted)]">
+                          No image
+                        </div>
+                      )}
+                      <div>
+                        <h4>{displayName}</h4>
+                        <p>{item.brand ?? "Unknown brand"}</p>
+                        <p>{item.type ?? "Item"}</p>
+                      </div>
+                      <div className="price">{price ?? "Price TBA"}</div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="pagination mt-6 flex justify-end">
               <button
-                className="button-secondary"
                 disabled={query.page === 1}
                 onClick={() =>
                   setQuery((prev) => ({ ...prev, page: Math.max(prev.page - 1, 1) }))
@@ -211,7 +230,6 @@ export default function CatalogPage() {
                 Prev
               </button>
               <button
-                className="button-secondary"
                 disabled={Boolean(data && query.page >= data.totalPages)}
                 onClick={() =>
                   setQuery((prev) => ({ ...prev, page: prev.page + 1 }))
@@ -220,66 +238,8 @@ export default function CatalogPage() {
                 Next
               </button>
             </div>
-          </div>
-
-          {loading && (
-            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="panel p-4 space-y-4">
-                  <div className="h-40 rounded-[20px] animate-shimmer" />
-                  <div className="h-4 w-3/4 rounded-full animate-shimmer" />
-                  <div className="h-3 w-1/2 rounded-full animate-shimmer" />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {!loading && (
-            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {data?.items.map((item, index) => {
-                const price = item.sellerLinks[0]
-                  ? formatPrice(item.sellerLinks[0].priceValue, item.sellerLinks[0].priceCurrency)
-                  : null;
-
-                return (
-                  <Link
-                    key={item.id}
-                    href={`/items/${item.id}`}
-                    className="panel p-4 hover:-translate-y-1 transition-transform"
-                    style={{ animationDelay: `${index * 80}ms` }}
-                  >
-                    <div className="relative h-48 rounded-[20px] overflow-hidden bg-[radial-gradient(circle,#f1e2d2,transparent_65%)]">
-                      {item.media[0]?.url ? (
-                        <img
-                          src={item.media[0].url}
-                          alt={item.title}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center text-sm text-[color:var(--muted)]">
-                          No image
-                        </div>
-                      )}
-                      <div className="absolute top-3 left-3 badge">{item.type ?? "Item"}</div>
-                    </div>
-                    <div className="mt-4">
-                      <h3 className="text-lg leading-tight">{item.title}</h3>
-                      <p className="text-sm text-[color:var(--muted)] mt-1">
-                        {item.brand ?? "Unknown brand"}
-                      </p>
-                      <div className="mt-3 flex items-center justify-between">
-                        <span className="text-sm font-semibold">
-                          {price ?? "Price TBA"}
-                        </span>
-                        <span className="text-xs text-[color:var(--accent-2)]">View details →</span>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </section>
+          </section>
+        </div>
       </div>
     </div>
   );

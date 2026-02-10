@@ -12,7 +12,7 @@ export default function ItemGallery({ images }: { images: GalleryImage[] }) {
 
   if (!images.length) {
     return (
-      <div className="panel p-8 text-center text-[color:var(--muted)]">
+      <div className="detail-panel text-center text-[color:var(--muted)]">
         No images available
       </div>
     );
@@ -20,22 +20,16 @@ export default function ItemGallery({ images }: { images: GalleryImage[] }) {
 
   return (
     <div>
-      <div className="panel p-4">
-        <img
-          src={current.url}
-          alt="Item"
-          className="w-full max-h-[480px] object-cover rounded-[20px]"
-        />
+      <div className="detail-panel">
+        <img src={current.url} alt="Item" className="w-full h-[520px] object-cover" />
       </div>
       {images.length > 1 && (
         <div className="mt-4 grid grid-cols-4 gap-3">
           {images.map((image, index) => (
             <button
               key={image.url}
-              className={`rounded-[16px] overflow-hidden border transition-all ${
-                index === active
-                  ? "border-[color:var(--accent)] scale-[1.02]"
-                  : "border-transparent"
+              className={`border ${
+                index === active ? "border-black" : "border-transparent"
               }`}
               onClick={() => setActive(index)}
             >
