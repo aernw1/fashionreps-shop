@@ -168,6 +168,12 @@ const scrapeFromJson = async (post: any): Promise<ScrapedPost | null> => {
 
   const media = extractMedia(post);
   const comments = await fetchPostComments(permalink, author);
+  const tags = extractTags(title + " " + (body ?? ""), flair);
+  const commentSellerLinks = extractSellerLinks(comments.map((comment) => comment.body));
+
+  if (tags.includes("W2C") && commentSellerLinks.length === 0) {
+    return null;
+  }
 
   const corpus = buildCorpus(title, body, ...comments.map((comment) => comment.body));
   const sellerLinks = await resolveSellerLinks(
@@ -178,7 +184,6 @@ const scrapeFromJson = async (post: any): Promise<ScrapedPost | null> => {
   const brand = inferBrandFromUrls(sellerLinks.map((link) => link.url)) ??
     inferBrandFromText(corpus);
   const type = inferTypeFromText(corpus);
-  const tags = extractTags(title + " " + (body ?? ""), flair);
 
   return {
     id: post.id,
@@ -221,6 +226,12 @@ const scrapeFromHtml = async (entry: {
 
   const media = parseHtmlMedia(html);
   const comments = parseHtmlComments(html, author);
+  const tags = extractTags(title + " " + (body ?? ""), flair);
+  const commentSellerLinks = extractSellerLinks(comments.map((comment) => comment.body));
+
+  if (tags.includes("W2C") && commentSellerLinks.length === 0) {
+    return null;
+  }
 
   const corpus = buildCorpus(title, body, ...comments.map((comment) => comment.body));
   const sellerLinks = await resolveSellerLinks(
@@ -236,7 +247,6 @@ const scrapeFromHtml = async (entry: {
   const brand = inferBrandFromUrls(sellerLinks.map((link) => link.url)) ??
     inferBrandFromText(corpus);
   const type = inferTypeFromText(corpus);
-  const tags = extractTags(title + " " + (body ?? ""), flair);
 
   return {
     id: entry.id,
