@@ -94,7 +94,6 @@ export const runScrape = async () => {
               url: item.url,
               kind: item.kind,
             })),
-            skipDuplicates: true,
           });
         }
 
@@ -107,7 +106,6 @@ export const runScrape = async () => {
               priceValue: link.priceValue ?? null,
               priceCurrency: link.priceCurrency ?? null,
             })),
-            skipDuplicates: true,
           });
         }
 
@@ -120,7 +118,6 @@ export const runScrape = async () => {
               body: comment.body,
               isOp: comment.isOp,
             })),
-            skipDuplicates: true,
           });
         }
 
@@ -130,7 +127,6 @@ export const runScrape = async () => {
               postId: scraped.id,
               tag,
             })),
-            skipDuplicates: true,
           });
         }
       });
