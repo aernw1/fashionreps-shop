@@ -3,11 +3,10 @@ import { REDDIT_USER_AGENT } from "./config";
 import { decodeHtmlEntities, extractUrls } from "./text";
 import type { ScrapedComment, ScrapedMedia } from "./types";
 
-const LISTING_URL =
-  "https://www.reddit.com/r/FashionReps/new.json?limit=200&raw_json=1";
+const LISTING_URL = "https://www.reddit.com/r/FashionReps/new.json";
+const LISTING_API_URL = "https://api.reddit.com/r/FashionReps/new";
+const LISTING_OLD_JSON_URL = "https://old.reddit.com/r/FashionReps/new.json";
 const LISTING_HTML_URL = "https://old.reddit.com/r/FashionReps/new/";
-const LISTING_API_URL =
-  "https://api.reddit.com/r/FashionReps/new?limit=200&raw_json=1";
 
 export type RedditListingPost = {
   id: string;
@@ -28,30 +27,28 @@ export type RedditListingPost = {
 };
 
 export const fetchRedditListing = async (): Promise<RedditListingPost[]> => {
-  let response = await fetchWithRetry(LISTING_URL, 3);
+  const endpoints = [LISTING_URL, LISTING_API_URL, LISTING_OLD_JSON_URL];
+  let lastError: unknown;
 
-  if (response.status === 429) {
-    response = await fetchWithRetry(LISTING_API_URL, 2);
+  for (const endpoint of endpoints) {
+    try {
+      const posts: RedditListingPost[] = [];
+      let after: string | null = null;
+
+      for (let page = 0; page < 4 && posts.length < 200; page += 1) {
+        const pageResult = await fetchListingPage(endpoint, after);
+        posts.push(...pageResult.posts);
+        after = pageResult.after;
+        if (!after) break;
+      }
+
+      if (posts.length > 0) return posts.slice(0, 200);
+    } catch (error) {
+      lastError = error;
+    }
   }
 
-  if (!response.ok) {
-    throw new Error(`Reddit listing request failed: ${response.status}`);
-  }
-
-  const payload = (await response.json()) as {
-    data?: { children?: Array<{ data?: RedditListingPost }> };
-  };
-
-  const posts = payload?.data?.children
-    ?.map((child) => child.data)
-    .filter((post): post is RedditListingPost => Boolean(post?.id))
-    .slice(0, 200);
-
-  if (!posts || posts.length === 0) {
-    throw new Error("Reddit listing returned no posts");
-  }
-
-  return posts;
+  throw lastError ?? new Error("Reddit listing returned no posts");
 };
 
 export const fetchListingHtml = async (url = LISTING_HTML_URL): Promise<string> => {
@@ -77,6 +74,28 @@ export const fetchListingHtmlPages = async (maxPages = 6) => {
   }
 
   return posts.slice(0, 200);
+};
+
+const fetchListingPage = async (endpoint: string, after: string | null) => {
+  const url = new URL(endpoint);
+  url.searchParams.set("limit", "100");
+  url.searchParams.set("raw_json", "1");
+  if (after) url.searchParams.set("after", after);
+
+  const response = await fetchWithRetry(url.toString(), 3);
+  if (!response.ok) {
+    throw new Error(`Reddit listing request failed: ${response.status}`);
+  }
+
+  const payload = (await response.json()) as {
+    data?: { children?: Array<{ data?: RedditListingPost }>; after?: string | null };
+  };
+
+  const posts = payload?.data?.children
+    ?.map((child) => child.data)
+    .filter((post): post is RedditListingPost => Boolean(post?.id)) ?? [];
+
+  return { posts, after: payload?.data?.after ?? null };
 };
 
 export const fetchPostHtml = async (permalink: string): Promise<string | null> => {
