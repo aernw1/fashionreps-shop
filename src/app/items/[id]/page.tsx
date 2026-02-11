@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import ItemGallery from "@/components/ItemGallery";
 import SiteHeader from "@/components/SiteHeader";
 import { getItemById } from "@/lib/api/items";
-import { deriveItemName } from "@/lib/item-name";
 
 const formatPrice = (value: number | null, currency: string | null) => {
   if (value === null || currency === null) return null;
@@ -29,7 +28,7 @@ export default async function ItemDetailPage({
   const primaryPrice = item.sellerLinks[0]
     ? formatPrice(item.sellerLinks[0].priceValue, item.sellerLinks[0].priceCurrency)
     : null;
-  const displayName = deriveItemName(item.title) || item.title;
+  const displayName = item.title;
 
   return (
     <div>
@@ -84,7 +83,7 @@ export default async function ItemDetailPage({
                 Post details
               </h2>
               <div className="mt-3 text-sm text-[color:var(--muted)] space-y-2">
-                <p>Post title: {item.title}</p>
+                <p>Post title: {item.postTitle ?? item.title}</p>
                 <p>Author: {item.author}</p>
                 <p>Flair: {item.flair ?? "None"}</p>
                 <p>Created: {new Date(item.createdUtc * 1000).toLocaleString()}</p>

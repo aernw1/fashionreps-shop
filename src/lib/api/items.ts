@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { deriveItemName } from "@/lib/item-name";
 import type { Prisma } from "@prisma/client";
 
 export type ItemsQuery = {
@@ -42,56 +43,59 @@ export const getItems = async (query: ItemsQuery) => {
   const pageSize = Math.min(query.pageSize ?? 24, 100);
   const skip = (page - 1) * pageSize;
 
-  const where: Prisma.PostWhereInput = {};
+  const where: Prisma.SellerLinkWhereInput = {};
+  const postWhere: Prisma.PostWhereInput = {};
 
   if (query.q) {
     where.OR = [
-      { title: { contains: query.q } },
-      { body: { contains: query.q } },
-      { author: { contains: query.q } },
+      { itemName: { contains: query.q } },
+      { post: { title: { contains: query.q } } },
+      { post: { body: { contains: query.q } } },
+      { post: { author: { contains: query.q } } },
     ];
   }
 
   if (query.brand) {
-    where.brand = { equals: query.brand };
+    postWhere.brand = { equals: query.brand };
   }
 
   if (query.type) {
-    where.type = { equals: query.type };
+    postWhere.type = { equals: query.type };
   }
 
   if (query.minPrice || query.maxPrice) {
-    where.sellerLinks = {
-      some: {
-        priceValue: {
-          ...(query.minPrice ? { gte: query.minPrice } : {}),
-          ...(query.maxPrice ? { lte: query.maxPrice } : {}),
-        },
-      },
+    where.priceValue = {
+      ...(query.minPrice ? { gte: query.minPrice } : {}),
+      ...(query.maxPrice ? { lte: query.maxPrice } : {}),
     };
   }
 
-  let orderBy: Prisma.PostOrderByWithRelationInput = { createdUtc: "desc" };
-  if (query.sort === "oldest") orderBy = { createdUtc: "asc" };
-  if (query.sort === "price_asc") {
-    orderBy = { sellerLinks: { _min: { priceValue: "asc" } } };
-  }
-  if (query.sort === "price_desc") {
-    orderBy = { sellerLinks: { _max: { priceValue: "desc" } } };
+  if (Object.keys(postWhere).length > 0) {
+    where.post = postWhere;
   }
 
+  let orderBy: Prisma.SellerLinkOrderByWithRelationInput = {
+    post: { createdUtc: "desc" },
+  };
+  if (query.sort === "oldest") orderBy = { post: { createdUtc: "asc" } };
+  if (query.sort === "price_asc") orderBy = { priceValue: "asc" };
+  if (query.sort === "price_desc") orderBy = { priceValue: "desc" };
+
   const [items, total] = await prisma.$transaction([
-    prisma.post.findMany({
+    prisma.sellerLink.findMany({
       where,
       orderBy,
       skip,
       take: pageSize,
       include: {
-        media: { take: 1 },
-        sellerLinks: { orderBy: { priceValue: "asc" }, take: 1 },
+        post: {
+          include: {
+            media: { take: 1 },
+          },
+        },
       },
     }),
-    prisma.post.count({ where }),
+    prisma.sellerLink.count({ where }),
   ]);
 
   let facets: { brands: string[]; types: string[] } | undefined;
@@ -100,12 +104,12 @@ export const getItems = async (query: ItemsQuery) => {
       prisma.post.findMany({
         distinct: ["brand"],
         select: { brand: true },
-        where: { brand: { not: null } },
+        where: { brand: { not: null }, sellerLinks: { some: {} } },
       }),
       prisma.post.findMany({
         distinct: ["type"],
         select: { type: true },
-        where: { type: { not: null } },
+        where: { type: { not: null }, sellerLinks: { some: {} } },
       }),
     ]);
 
@@ -122,7 +126,22 @@ export const getItems = async (query: ItemsQuery) => {
   }
 
   return {
-    items,
+    items: items.map((item) => ({
+      id: String(item.id),
+      title: item.itemName ?? deriveItemName(item.post.title) ?? item.post.title,
+      brand: item.post.brand,
+      type: item.post.type,
+      permalink: item.post.permalink,
+      media: item.post.media,
+      sellerLinks: [
+        {
+          url: item.url,
+          priceValue: item.priceValue,
+          priceCurrency: item.priceCurrency,
+          domain: item.domain,
+        },
+      ],
+    })),
     total,
     page,
     pageSize,
@@ -132,13 +151,46 @@ export const getItems = async (query: ItemsQuery) => {
 };
 
 export const getItemById = async (id: string) => {
-  return prisma.post.findUnique({
-    where: { id },
+  const sellerId = Number(id);
+  if (!Number.isFinite(sellerId)) return null;
+
+  const item = await prisma.sellerLink.findUnique({
+    where: { id: sellerId },
     include: {
-      media: true,
-      sellerLinks: true,
-      comments: true,
-      tags: true,
+      post: {
+        include: {
+          media: true,
+          comments: true,
+          tags: true,
+        },
+      },
     },
   });
+
+  if (!item) return null;
+
+  return {
+    id: String(item.id),
+    title: item.itemName ?? deriveItemName(item.post.title) ?? item.post.title,
+    postTitle: item.post.title,
+    body: item.post.body,
+    author: item.post.author,
+    createdUtc: item.post.createdUtc,
+    flair: item.post.flair,
+    permalink: item.post.permalink,
+    brand: item.post.brand,
+    type: item.post.type,
+    media: item.post.media,
+    sellerLinks: [
+      {
+        id: item.id,
+        url: item.url,
+        domain: item.domain,
+        priceValue: item.priceValue,
+        priceCurrency: item.priceCurrency,
+      },
+    ],
+    comments: item.post.comments,
+    tags: item.post.tags,
+  };
 };

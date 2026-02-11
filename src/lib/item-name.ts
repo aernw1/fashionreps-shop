@@ -29,6 +29,8 @@ export const deriveItemName = (title: string): string => {
 
   cleaned = cleaned.replace(/(?:USD|EUR|GBP|CNY|RMB|¥|€|£|\$)\s*\d+(?:[\.,]\d+)?/gi, " ");
   cleaned = cleaned.replace(/\b\d{2,4}\s*(?:cny|rmb|usd|eur|gbp)\b/gi, " ");
+  cleaned = cleaned.replace(/\b\d+(?:\.\d+)?\s*(kg|g|lb|lbs)\b/gi, " ");
+  cleaned = cleaned.replace(/\bhaul\b/gi, " ");
 
   cleaned = cleaned.replace(/\s*[|•·\-–—]\s*/g, " ");
   cleaned = cleaned.replace(/\s+/g, " ").trim();

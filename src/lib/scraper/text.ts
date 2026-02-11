@@ -53,6 +53,36 @@ export const extractSellerLinks = (segments: string[]): string[] => {
   return Array.from(new Set(filtered));
 };
 
+export const buildLinkContextMap = (segments: string[]): Map<string, string> => {
+  const contextMap = new Map<string, string>();
+
+  for (const segment of segments) {
+    if (!segment) continue;
+    const urls = extractUrls(segment);
+    if (!urls.length) continue;
+
+    for (const url of urls) {
+      const cleaned = cleanLinkContext(segment, url);
+      if (!cleaned) continue;
+      const existing = contextMap.get(url);
+      if (!existing || cleaned.length > existing.length) {
+        contextMap.set(url, cleaned);
+      }
+    }
+  }
+
+  return contextMap;
+};
+
+const cleanLinkContext = (segment: string, url: string): string => {
+  let context = segment.replace(url, " ");
+  context = context.replace(/\s+/g, " ").trim();
+  context = context.replace(/\b(w2c|qc|lc|haul|review)\b/gi, " ").trim();
+  context = context.replace(/\s+/g, " ").trim();
+  if (context.length < 3) return "";
+  return context;
+};
+
 export const inferBrandFromUrls = (urls: string[]): string | null => {
   for (const url of urls) {
     for (const { pattern, brand } of BRAND_URL_PATTERNS) {

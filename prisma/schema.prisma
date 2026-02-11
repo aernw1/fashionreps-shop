@@ -48,6 +48,7 @@ model SellerLink {
   postId        String  @map("post_id")
   url           String
   domain        String
+  itemName      String? @map("item_name")
   priceValue    Float?  @map("price_value")
   priceCurrency String? @map("price_currency")
 

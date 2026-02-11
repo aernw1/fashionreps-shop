@@ -20,6 +20,7 @@ import {
 import { fetchSellerPrice } from "./seller";
 import {
   buildCorpus,
+  buildLinkContextMap,
   extractPriceFromText,
   extractSellerLinks,
   extractTags,
@@ -28,6 +29,7 @@ import {
   inferTypeFromText,
 } from "./text";
 import type { ScrapedPost, ScrapedSellerLink } from "./types";
+import { deriveItemName } from "@/lib/item-name";
 
 export const runScrape = async () => {
   const startedAt = Date.now();
@@ -110,6 +112,7 @@ export const runScrape = async () => {
               postId: scraped.id,
               url: link.url,
               domain: link.domain,
+              itemName: link.itemName ?? null,
               priceValue: link.priceValue ?? null,
               priceCurrency: link.priceCurrency ?? null,
             })),
@@ -176,14 +179,19 @@ const scrapeFromJson = async (post: any): Promise<ScrapedPost | null> => {
 
   const corpus = buildCorpus(title, body, ...comments.map((comment) => comment.body));
   const type = inferTypeFromText(corpus);
-  const sellerUrls = extractSellerLinks([title, body ?? "", ...comments.map((comment) => comment.body)]);
+  const segments = [title, body ?? "", ...comments.map((comment) => comment.body)];
+  const sellerUrls = extractSellerLinks(segments);
+  const linkContexts = buildLinkContextMap(segments);
 
   if (sellerUrls.length === 0 && !type) {
     return null;
   }
   const sellerLinks = await resolveSellerLinks(
     sellerUrls,
-    corpus
+    corpus,
+    linkContexts,
+    deriveItemName(title),
+    type
   );
 
   const brand = inferBrandFromUrls(sellerLinks.map((link) => link.url)) ??
@@ -239,19 +247,22 @@ const scrapeFromHtml = async (entry: {
 
   const corpus = buildCorpus(title, body, ...comments.map((comment) => comment.body));
   const type = inferTypeFromText(corpus);
+  const segments = [title, body ?? "", ...comments.map((comment) => comment.body)];
   const sellerUrls = extractSellerLinks([
-    title,
-    body ?? "",
-    ...comments.map((comment) => comment.body),
+    ...segments,
     ...extractHtmlSellerLinks(html),
   ]);
+  const linkContexts = buildLinkContextMap(segments);
 
   if (sellerUrls.length === 0 && !type) {
     return null;
   }
   const sellerLinks = await resolveSellerLinks(
     sellerUrls,
-    corpus
+    corpus,
+    linkContexts,
+    deriveItemName(title),
+    type
   );
 
   const brand = inferBrandFromUrls(sellerLinks.map((link) => link.url)) ??
@@ -276,7 +287,10 @@ const scrapeFromHtml = async (entry: {
 
 const resolveSellerLinks = async (
   urls: string[],
-  corpus: string
+  corpus: string,
+  linkContexts: Map<string, string>,
+  fallbackName: string,
+  fallbackType: string | null
 ): Promise<ScrapedSellerLink[]> => {
   const priceFromText = extractPriceFromText(corpus);
   const links: ScrapedSellerLink[] = [];
@@ -295,9 +309,16 @@ const resolveSellerLinks = async (
       price = await fetchSellerPrice(url);
     }
 
+    const contextName = linkContexts.get(url);
+    const itemName = deriveItemName(contextName ?? "") ||
+      fallbackName ||
+      (fallbackType ?? "") ||
+      "";
+
     links.push({
       url,
       domain: hostname,
+      itemName: itemName || null,
       priceValue: price?.value ?? null,
       priceCurrency: price?.currency ?? null,
     });

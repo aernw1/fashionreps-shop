@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
-import { deriveItemName } from "@/lib/item-name";
 
 type CatalogItem = {
   id: string;
@@ -197,19 +196,17 @@ export default function CatalogPage() {
                   const price = item.sellerLinks[0]
                     ? formatPrice(item.sellerLinks[0].priceValue, item.sellerLinks[0].priceCurrency)
                     : null;
-                  const displayName = deriveItemName(item.title) || item.title;
-
                   return (
                     <Link key={item.id} href={`/items/${item.id}`} className="product-card">
                       {item.media[0]?.url ? (
-                        <img src={item.media[0].url} alt={displayName} />
+                        <img src={item.media[0].url} alt={item.title} />
                       ) : (
                         <div className="h-[280px] bg-[#f0f0f0] flex items-center justify-center text-xs text-[color:var(--muted)]">
                           No image
                         </div>
                       )}
                       <div>
-                        <h4>{displayName}</h4>
+                        <h4>{item.title}</h4>
                         <p>{item.brand ?? "Unknown brand"}</p>
                         <p>{item.type ?? "Item"}</p>
                       </div>

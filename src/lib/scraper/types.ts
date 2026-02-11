@@ -6,6 +6,7 @@ export type ScrapedMedia = {
 export type ScrapedSellerLink = {
   url: string;
   domain: string;
+  itemName?: string | null;
   priceValue?: number | null;
   priceCurrency?: string | null;
 };
