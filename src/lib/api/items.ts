@@ -90,7 +90,11 @@ export const getItems = async (query: ItemsQuery) => {
       include: {
         post: {
           include: {
-            media: { take: 1 },
+            media: { orderBy: { id: "asc" } },
+            sellerLinks: {
+              select: { id: true },
+              orderBy: { id: "asc" },
+            },
           },
         },
       },
@@ -127,12 +131,23 @@ export const getItems = async (query: ItemsQuery) => {
 
   return {
     items: items.map((item) => ({
+      // For haul posts split into multiple seller links, map each link to a stable media slot.
+      // If there are fewer media assets than links, wrap around as fallback.
+      media: (() => {
+        const media = item.post.media;
+        if (!media.length) return [];
+        const siblingIndex = item.post.sellerLinks.findIndex(
+          (sellerLink) => sellerLink.id === item.id
+        );
+        if (siblingIndex < 0) return [media[0]];
+        const picked = media[siblingIndex % media.length];
+        return picked ? [picked] : [];
+      })(),
       id: String(item.id),
       title: item.itemName ?? deriveItemName(item.post.title) ?? item.post.title,
       brand: item.post.brand,
       type: item.post.type,
       permalink: item.post.permalink,
-      media: item.post.media,
       sellerLinks: [
         {
           url: item.url,
