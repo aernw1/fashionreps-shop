@@ -138,7 +138,8 @@ export const getItems = async (query: ItemsQuery) => {
   const mappedItems = await Promise.all(items.map(async (item) => {
     let media = pickMediaForSellerLink(item);
     if (media.length === 0) {
-      const fallbackImage = await getSellerPreviewImage(item.url);
+      const bodyImage = extractImageFromText(item.post.body);
+      const fallbackImage = bodyImage ?? await getSellerPreviewImage(item.url);
       if (fallbackImage) {
         media = [{ url: fallbackImage }];
       }
@@ -195,7 +196,8 @@ export const getItemById = async (id: string) => {
 
   let media = item.post.media;
   if (media.length === 0) {
-    const fallbackImage = await getSellerPreviewImage(item.url);
+    const bodyImage = extractImageFromText(item.post.body);
+    const fallbackImage = bodyImage ?? await getSellerPreviewImage(item.url);
     if (fallbackImage) {
       media = [{ id: -1, postId: item.post.id, kind: "image", url: fallbackImage }];
     }
@@ -294,13 +296,22 @@ const getSellerPreviewImage = async (url: string): Promise<string | null> => {
 
     const html = await response.text();
     const $ = load(html);
-    const candidates = [
+    const candidates: Array<string | undefined> = [
       $("meta[property=\"og:image\"]").attr("content"),
       $("meta[name=\"twitter:image\"]").attr("content"),
       $("link[rel=\"image_src\"]").attr("href"),
-      $("img").first().attr("src"),
-      $("img").first().attr("data-src"),
     ];
+
+    $("img").each((_, element) => {
+      candidates.push($(element).attr("src"));
+      candidates.push($(element).attr("data-src"));
+      candidates.push($(element).attr("data-original"));
+      const srcset = $(element).attr("srcset");
+      if (srcset) {
+        const first = srcset.split(",")[0]?.trim().split(" ")[0];
+        candidates.push(first);
+      }
+    });
 
     for (const candidate of candidates) {
       const resolved = resolveImageUrl(candidate, response.url);
@@ -327,8 +338,30 @@ const resolveImageUrl = (raw: string | undefined, baseUrl: string) => {
   try {
     const url = new URL(decoded, baseUrl).toString();
     if (!url.startsWith("http")) return null;
+    if (!isLikelyProductImage(url)) return null;
     return url;
   } catch {
     return null;
   }
+};
+
+const isLikelyProductImage = (url: string) => {
+  const lowered = url.toLowerCase();
+  if (lowered.includes("logo") || lowered.includes("icon") || lowered.includes("sprite")) {
+    return false;
+  }
+  if (/\.(jpe?g|png|webp|gif)(\?|$)/i.test(lowered)) return true;
+  return lowered.includes("image") || lowered.includes("photo");
+};
+
+const extractImageFromText = (text: string | null | undefined): string | null => {
+  if (!text) return null;
+  const matches = text.match(/\bhttps?:\/\/[^\s<>()]+/gi) ?? [];
+  for (const match of matches) {
+    const cleaned = match.replace(/[),.?!\]]+$/g, "");
+    if (/\.(jpe?g|png|webp|gif)(\?|$)/i.test(cleaned)) {
+      return cleaned;
+    }
+  }
+  return null;
 };
