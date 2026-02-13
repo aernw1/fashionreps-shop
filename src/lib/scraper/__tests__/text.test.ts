@@ -7,6 +7,7 @@ import {
   inferBrandFromText,
   inferBrandFromUrls,
   inferTypeFromText,
+  normalizeUrl,
 } from "../text";
 
 describe("text helpers", () => {
@@ -28,6 +29,11 @@ describe("text helpers", () => {
       "https://taobao.com/item",
       "https://weidian.com/item",
     ]);
+  });
+
+  it("normalizes URLs and removes tracking params", () => {
+    expect(normalizeUrl("https://www.Example.com/item/?utm_source=x&share_token=abc#top"))
+      .toBe("https://example.com/item");
   });
 
   it("infers brand from url or text", () => {

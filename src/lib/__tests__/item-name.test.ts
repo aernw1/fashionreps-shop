@@ -9,6 +9,8 @@ describe("item name helpers", () => {
   it("flags generic haul-style names", () => {
     expect(isGenericItemName("First Ever")).toBe(true);
     expect(isGenericItemName("Mulebuy to EU streetwear")).toBe(true);
+    expect(isGenericItemName("to Poland!")).toBe(true);
+    expect(isGenericItemName("Are these good quality")).toBe(true);
   });
 
   it("keeps specific product names", () => {

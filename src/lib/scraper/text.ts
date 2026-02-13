@@ -9,12 +9,42 @@ import {
 export type PriceInfo = { value: number; currency: string } | null;
 
 const URL_REGEX = /\bhttps?:\/\/[^\s<>()]+/gi;
+const TRACKING_QUERY_PARAMS = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "spm",
+  "source",
+  "from",
+  "ref",
+  "ref_src",
+  "share_relation",
+  "share_token",
+  "share",
+  "fbclid",
+  "gclid",
+];
 
 export const normalizeUrl = (rawUrl: string): string | null => {
   const decoded = decodeHtmlEntities(rawUrl.trim());
   const trimmed = decoded.replace(/[),.?!\]]+$/g, "");
   try {
     const url = new URL(trimmed);
+    url.hash = "";
+
+    for (const key of TRACKING_QUERY_PARAMS) {
+      url.searchParams.delete(key);
+    }
+
+    const host = url.hostname.replace(/^www\./i, "").toLowerCase();
+    url.hostname = host;
+
+    if (url.pathname.length > 1) {
+      url.pathname = url.pathname.replace(/\/+$/, "");
+    }
+
     return url.toString();
   } catch {
     return null;

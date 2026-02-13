@@ -34,6 +34,12 @@ const GENERIC_PHRASES = [
   /^haul$/i,
   /^mini haul$/i,
   /^unknown brand$/i,
+  /^to [a-z\s-]+!?$/i,
+  /^from [a-z\s-]+!?$/i,
+  /^for [a-z\s-]+!?$/i,
+  /^are these good quality\??$/i,
+  /^is this good quality\??$/i,
+  /^is this good\??$/i,
   /^(mulebuy|superbuy|pandabuy|wegobuy)\b/i,
 ];
 
@@ -67,5 +73,7 @@ export const isGenericItemName = (value: string | null | undefined): boolean => 
 
   const words = cleaned.split(/\s+/).filter(Boolean);
   if (!words.length) return true;
+  if (value.includes("?")) return true;
+  if (words.length <= 3 && ["to", "from", "for"].includes(words[0])) return true;
   return words.every((word) => GENERIC_WORDS.has(word));
 };
