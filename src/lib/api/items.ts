@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/db";
 import { deriveItemName } from "@/lib/item-name";
+import {
+  inferBrandFromText,
+  inferBrandFromUrls,
+  inferTypeFromText,
+} from "@/lib/scraper/text";
 import type { Prisma } from "@prisma/client";
 
 export type ItemsQuery = {
@@ -131,6 +136,7 @@ export const getItems = async (query: ItemsQuery) => {
 
   return {
     items: items.map((item) => ({
+      ...deriveItemTaxonomy(item),
       // For haul posts split into multiple seller links, map each link to a stable media slot.
       // If there are fewer media assets than links, wrap around as fallback.
       media: (() => {
@@ -145,8 +151,6 @@ export const getItems = async (query: ItemsQuery) => {
       })(),
       id: String(item.id),
       title: item.itemName ?? deriveItemName(item.post.title) ?? item.post.title,
-      brand: item.post.brand,
-      type: item.post.type,
       permalink: item.post.permalink,
       sellerLinks: [
         {
@@ -177,6 +181,9 @@ export const getItemById = async (id: string) => {
           media: true,
           comments: true,
           tags: true,
+          sellerLinks: {
+            select: { id: true },
+          },
         },
       },
     },
@@ -193,8 +200,7 @@ export const getItemById = async (id: string) => {
     createdUtc: item.post.createdUtc,
     flair: item.post.flair,
     permalink: item.post.permalink,
-    brand: item.post.brand,
-    type: item.post.type,
+    ...deriveItemTaxonomy(item),
     media: item.post.media,
     sellerLinks: [
       {
@@ -207,5 +213,23 @@ export const getItemById = async (id: string) => {
     ],
     comments: item.post.comments,
     tags: item.post.tags,
+  };
+};
+
+const deriveItemTaxonomy = (item: {
+  url: string;
+  itemName: string | null;
+  post: { brand: string | null; type: string | null; sellerLinks?: Array<{ id: number }> };
+}) => {
+  const inferredBrand =
+    inferBrandFromUrls([item.url]) ??
+    inferBrandFromText(item.itemName ?? "");
+  const inferredType = inferTypeFromText(item.itemName ?? "");
+
+  const isMultiLinkPost = (item.post.sellerLinks?.length ?? 0) > 1;
+
+  return {
+    brand: inferredBrand ?? (isMultiLinkPost ? null : item.post.brand),
+    type: inferredType ?? (isMultiLinkPost ? null : item.post.type),
   };
 };
