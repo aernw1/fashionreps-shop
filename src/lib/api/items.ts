@@ -255,12 +255,27 @@ const pickMediaForSellerLink = (item: {
 }) => {
   const media = item.post.media;
   if (!media.length) return [];
+  if (item.post.sellerLinks.length <= 1) return media.slice(0, 8);
+
   const siblingIndex = item.post.sellerLinks.findIndex(
     (sellerLink) => sellerLink.id === item.id
   );
-  if (siblingIndex < 0) return [media[0]];
-  const picked = media[siblingIndex % media.length];
-  return picked ? [picked] : [];
+  if (siblingIndex < 0) return media.slice(0, 8);
+
+  const stride = Math.max(item.post.sellerLinks.length, 1);
+  const assigned: Array<{ url: string }> = [];
+  for (let index = siblingIndex; index < media.length; index += stride) {
+    const picked = media[index];
+    if (picked) assigned.push(picked);
+    if (assigned.length >= 8) break;
+  }
+
+  if (!assigned.length) {
+    const fallback = media[siblingIndex % media.length];
+    return fallback ? [fallback] : [];
+  }
+
+  return assigned;
 };
 
 const globalForSellerPreview = global as unknown as {
