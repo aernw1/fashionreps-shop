@@ -133,11 +133,66 @@ a {
   gap: 12px;
 }
 
+.product-media {
+  position: relative;
+}
+
 .product-card img {
   width: 100%;
   height: 280px;
   object-fit: cover;
   background: #f0f0f0;
+}
+
+.media-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: rgba(17, 17, 17, 0.68);
+  color: #fff;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.media-nav-left {
+  left: 10px;
+}
+
+.media-nav-right {
+  right: 10px;
+}
+
+.media-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+}
+
+.media-dots button {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+
+.media-dots button.is-active {
+  background: #111;
+}
+
+.product-card > a {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .product-card h4 {

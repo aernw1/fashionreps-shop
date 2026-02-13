@@ -35,6 +35,7 @@ const formatPrice = (value: number | null, currency: string | null) => {
 export default function CatalogPage() {
   const [data, setData] = useState<CatalogResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeMediaByItem, setActiveMediaByItem] = useState<Record<string, number>>({});
   const [query, setQuery] = useState({
     q: "",
     brand: "",
@@ -82,6 +83,25 @@ export default function CatalogPage() {
   const headerTitle = query.brand
     ? `${query.brand} (${data?.total ?? 0})`
     : `Catalog (${data?.total ?? 0})`;
+
+  const getActiveMediaIndex = (itemId: string, mediaLength: number) => {
+    const active = activeMediaByItem[itemId] ?? 0;
+    if (mediaLength <= 0) return 0;
+    return Math.min(active, mediaLength - 1);
+  };
+
+  const cycleMedia = (itemId: string, mediaLength: number, direction: 1 | -1) => {
+    if (mediaLength <= 1) return;
+    setActiveMediaByItem((prev) => {
+      const current = prev[itemId] ?? 0;
+      const next = (current + direction + mediaLength) % mediaLength;
+      return { ...prev, [itemId]: next };
+    });
+  };
+
+  const setMediaIndex = (itemId: string, index: number) => {
+    setActiveMediaByItem((prev) => ({ ...prev, [itemId]: index }));
+  };
 
   return (
     <div>
@@ -196,22 +216,60 @@ export default function CatalogPage() {
                   const price = item.sellerLinks[0]
                     ? formatPrice(item.sellerLinks[0].priceValue, item.sellerLinks[0].priceCurrency)
                     : null;
+                  const mediaCount = item.media.length;
+                  const activeMediaIndex = getActiveMediaIndex(item.id, mediaCount);
+                  const activeMedia = item.media[activeMediaIndex];
                   return (
-                    <Link key={item.id} href={`/items/${item.id}`} className="product-card">
-                      {item.media[0]?.url ? (
-                        <img src={item.media[0].url} alt={item.title} />
+                    <article key={item.id} className="product-card">
+                      {activeMedia?.url ? (
+                        <div className="product-media">
+                          <img src={activeMedia.url} alt={item.title} />
+                          {mediaCount > 1 && (
+                            <>
+                              <button
+                                type="button"
+                                className="media-nav media-nav-left"
+                                aria-label="Previous image"
+                                onClick={() => cycleMedia(item.id, mediaCount, -1)}
+                              >
+                                ‹
+                              </button>
+                              <button
+                                type="button"
+                                className="media-nav media-nav-right"
+                                aria-label="Next image"
+                                onClick={() => cycleMedia(item.id, mediaCount, 1)}
+                              >
+                                ›
+                              </button>
+                              <div className="media-dots">
+                                {item.media.slice(0, 8).map((media, index) => (
+                                  <button
+                                    key={media.url}
+                                    type="button"
+                                    className={index === activeMediaIndex ? "is-active" : ""}
+                                    aria-label={`Show image ${index + 1}`}
+                                    onClick={() => setMediaIndex(item.id, index)}
+                                  />
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
                       ) : (
                         <div className="h-[280px] bg-[#f0f0f0] flex items-center justify-center text-xs text-[color:var(--muted)]">
                           No image
                         </div>
                       )}
-                      <div>
-                        <h4>{item.title}</h4>
-                        <p>{item.brand ?? "Unknown brand"}</p>
-                        <p>{item.type ?? "Item"}</p>
-                      </div>
-                      <div className="price">{price ?? "Price TBA"}</div>
-                    </Link>
+                      <Link href={`/items/${item.id}`}>
+                        <div>
+                          <h4>{item.title}</h4>
+                          <p>{item.brand ?? "Unknown brand"}</p>
+                          <p>{item.type ?? "Item"}</p>
+                        </div>
+                        <div className="price">{price ?? "Price TBA"}</div>
+                      </Link>
+                    </article>
                   );
                 })}
               </div>
