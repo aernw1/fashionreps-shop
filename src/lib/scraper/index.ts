@@ -29,7 +29,7 @@ import {
   inferTypeFromText,
 } from "./text";
 import type { ScrapedPost, ScrapedSellerLink } from "./types";
-import { deriveItemName } from "@/lib/item-name";
+import { deriveItemName, isGenericItemName } from "@/lib/item-name";
 
 export const runScrape = async () => {
   const startedAt = Date.now();
@@ -310,10 +310,13 @@ const resolveSellerLinks = async (
     }
 
     const contextName = linkContexts.get(url);
-    const itemName = deriveItemName(contextName ?? "") ||
-      fallbackName ||
-      (fallbackType ?? "") ||
-      "";
+    const itemName = buildSellerItemName({
+      url,
+      contextName,
+      fallbackName,
+      fallbackType,
+      corpus,
+    });
 
     links.push({
       url,
@@ -325,4 +328,34 @@ const resolveSellerLinks = async (
   }
 
   return links;
+};
+
+const buildSellerItemName = ({
+  url,
+  contextName,
+  fallbackName,
+  fallbackType,
+  corpus,
+}: {
+  url: string;
+  contextName: string | undefined;
+  fallbackName: string;
+  fallbackType: string | null;
+  corpus: string;
+}) => {
+  const cleanedContextName = deriveItemName(contextName ?? "");
+  if (!isGenericItemName(cleanedContextName)) return cleanedContextName;
+
+  if (!isGenericItemName(fallbackName)) return fallbackName;
+
+  const brand =
+    inferBrandFromUrls([url]) ??
+    inferBrandFromText(contextName ?? "") ??
+    inferBrandFromText(corpus);
+  const itemType = inferTypeFromText(contextName ?? "") ?? fallbackType;
+
+  const syntheticName = [brand, itemType].filter(Boolean).join(" ");
+  if (syntheticName) return syntheticName;
+
+  return itemType ?? brand ?? "Item";
 };

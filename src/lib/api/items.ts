@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { load } from "cheerio";
-import { deriveItemName } from "@/lib/item-name";
+import { deriveItemName, isGenericItemName } from "@/lib/item-name";
 import {
   inferBrandFromText,
   inferBrandFromUrls,
@@ -149,7 +149,7 @@ export const getItems = async (query: ItemsQuery) => {
       ...deriveItemTaxonomy(item),
       media,
       id: String(item.id),
-      title: item.itemName ?? deriveItemName(item.post.title) ?? item.post.title,
+      title: resolveDisplayItemName(item),
       permalink: item.post.permalink,
       sellerLinks: [
         {
@@ -205,7 +205,7 @@ export const getItemById = async (id: string) => {
 
   return {
     id: String(item.id),
-    title: item.itemName ?? deriveItemName(item.post.title) ?? item.post.title,
+    title: resolveDisplayItemName(item),
     postTitle: item.post.title,
     body: item.post.body,
     author: item.post.author,
@@ -244,6 +244,30 @@ const deriveItemTaxonomy = (item: {
     brand: inferredBrand ?? (isMultiLinkPost ? null : item.post.brand),
     type: inferredType ?? (isMultiLinkPost ? null : item.post.type),
   };
+};
+
+const resolveDisplayItemName = (item: {
+  url: string;
+  domain: string;
+  itemName: string | null;
+  post: { title: string; brand: string | null; type: string | null };
+}) => {
+  const cleanedItemName = deriveItemName(item.itemName ?? "");
+  if (!isGenericItemName(cleanedItemName)) return cleanedItemName;
+
+  const cleanedPostTitle = deriveItemName(item.post.title);
+  if (!isGenericItemName(cleanedPostTitle)) return cleanedPostTitle;
+
+  const brand =
+    inferBrandFromUrls([item.url]) ??
+    inferBrandFromText(item.itemName ?? "") ??
+    item.post.brand;
+  const itemType = inferTypeFromText(item.itemName ?? "") ?? item.post.type;
+  const syntheticName = [brand, itemType].filter(Boolean).join(" ");
+  if (syntheticName) return syntheticName;
+
+  const domainLabel = item.domain.split(".")[0] ?? "Item";
+  return `${domainLabel} item`;
 };
 
 const pickMediaForSellerLink = (item: {

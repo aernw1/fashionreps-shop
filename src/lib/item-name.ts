@@ -15,6 +15,27 @@ const TAG_WORDS = [
 ];
 
 const TAG_REGEX = new RegExp(`\\b(${TAG_WORDS.join("|")})\\b`, "gi");
+const GENERIC_WORDS = new Set([
+  "haul",
+  "review",
+  "item",
+  "items",
+  "first",
+  "ever",
+  "package",
+  "parcel",
+  "shipping",
+  "order",
+  "unknown",
+]);
+const GENERIC_PHRASES = [
+  /^first ever$/i,
+  /^first haul$/i,
+  /^haul$/i,
+  /^mini haul$/i,
+  /^unknown brand$/i,
+  /^(mulebuy|superbuy|pandabuy|wegobuy)\b/i,
+];
 
 export const deriveItemName = (title: string): string => {
   if (!title) return "";
@@ -36,4 +57,15 @@ export const deriveItemName = (title: string): string => {
   cleaned = cleaned.replace(/\s+/g, " ").trim();
 
   return cleaned;
+};
+
+export const isGenericItemName = (value: string | null | undefined): boolean => {
+  if (!value) return true;
+  const cleaned = deriveItemName(value).toLowerCase();
+  if (!cleaned || cleaned.length < 3) return true;
+  if (GENERIC_PHRASES.some((pattern) => pattern.test(cleaned))) return true;
+
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  return words.every((word) => GENERIC_WORDS.has(word));
 };
