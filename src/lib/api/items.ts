@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { load } from "cheerio";
 import { deriveItemName } from "@/lib/item-name";
 import {
   inferBrandFromText,
@@ -134,21 +135,18 @@ export const getItems = async (query: ItemsQuery) => {
     };
   }
 
-  return {
-    items: items.map((item) => ({
+  const mappedItems = await Promise.all(items.map(async (item) => {
+    let media = pickMediaForSellerLink(item);
+    if (media.length === 0) {
+      const fallbackImage = await getSellerPreviewImage(item.url);
+      if (fallbackImage) {
+        media = [{ url: fallbackImage }];
+      }
+    }
+
+    return {
       ...deriveItemTaxonomy(item),
-      // For haul posts split into multiple seller links, map each link to a stable media slot.
-      // If there are fewer media assets than links, wrap around as fallback.
-      media: (() => {
-        const media = item.post.media;
-        if (!media.length) return [];
-        const siblingIndex = item.post.sellerLinks.findIndex(
-          (sellerLink) => sellerLink.id === item.id
-        );
-        if (siblingIndex < 0) return [media[0]];
-        const picked = media[siblingIndex % media.length];
-        return picked ? [picked] : [];
-      })(),
+      media,
       id: String(item.id),
       title: item.itemName ?? deriveItemName(item.post.title) ?? item.post.title,
       permalink: item.post.permalink,
@@ -160,7 +158,11 @@ export const getItems = async (query: ItemsQuery) => {
           domain: item.domain,
         },
       ],
-    })),
+    };
+  }));
+
+  return {
+    items: mappedItems,
     total,
     page,
     pageSize,
@@ -191,6 +193,14 @@ export const getItemById = async (id: string) => {
 
   if (!item) return null;
 
+  let media = item.post.media;
+  if (media.length === 0) {
+    const fallbackImage = await getSellerPreviewImage(item.url);
+    if (fallbackImage) {
+      media = [{ id: -1, postId: item.post.id, kind: "image", url: fallbackImage }];
+    }
+  }
+
   return {
     id: String(item.id),
     title: item.itemName ?? deriveItemName(item.post.title) ?? item.post.title,
@@ -201,7 +211,7 @@ export const getItemById = async (id: string) => {
     flair: item.post.flair,
     permalink: item.post.permalink,
     ...deriveItemTaxonomy(item),
-    media: item.post.media,
+    media,
     sellerLinks: [
       {
         id: item.id,
@@ -232,4 +242,93 @@ const deriveItemTaxonomy = (item: {
     brand: inferredBrand ?? (isMultiLinkPost ? null : item.post.brand),
     type: inferredType ?? (isMultiLinkPost ? null : item.post.type),
   };
+};
+
+const pickMediaForSellerLink = (item: {
+  id: number;
+  post: {
+    media: Array<{ url: string }>;
+    sellerLinks: Array<{ id: number }>;
+  };
+}) => {
+  const media = item.post.media;
+  if (!media.length) return [];
+  const siblingIndex = item.post.sellerLinks.findIndex(
+    (sellerLink) => sellerLink.id === item.id
+  );
+  if (siblingIndex < 0) return [media[0]];
+  const picked = media[siblingIndex % media.length];
+  return picked ? [picked] : [];
+};
+
+const globalForSellerPreview = global as unknown as {
+  sellerPreviewCache?: Map<string, string | null>;
+};
+const sellerPreviewCache =
+  globalForSellerPreview.sellerPreviewCache ?? new Map<string, string | null>();
+if (!globalForSellerPreview.sellerPreviewCache) {
+  globalForSellerPreview.sellerPreviewCache = sellerPreviewCache;
+}
+
+const getSellerPreviewImage = async (url: string): Promise<string | null> => {
+  const cached = sellerPreviewCache.get(url);
+  if (cached !== undefined) return cached;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8_000);
+
+  try {
+    const response = await fetch(url, {
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "reddit-shop/1.0 (seller image fallback)",
+        Accept: "text/html",
+      },
+    });
+
+    if (!response.ok) {
+      sellerPreviewCache.set(url, null);
+      return null;
+    }
+
+    const html = await response.text();
+    const $ = load(html);
+    const candidates = [
+      $("meta[property=\"og:image\"]").attr("content"),
+      $("meta[name=\"twitter:image\"]").attr("content"),
+      $("link[rel=\"image_src\"]").attr("href"),
+      $("img").first().attr("src"),
+      $("img").first().attr("data-src"),
+    ];
+
+    for (const candidate of candidates) {
+      const resolved = resolveImageUrl(candidate, response.url);
+      if (resolved) {
+        sellerPreviewCache.set(url, resolved);
+        return resolved;
+      }
+    }
+
+    sellerPreviewCache.set(url, null);
+    return null;
+  } catch {
+    sellerPreviewCache.set(url, null);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const resolveImageUrl = (raw: string | undefined, baseUrl: string) => {
+  if (!raw) return null;
+  const decoded = raw.replace(/&amp;/g, "&").trim();
+  if (!decoded) return null;
+  try {
+    const url = new URL(decoded, baseUrl).toString();
+    if (!url.startsWith("http")) return null;
+    return url;
+  } catch {
+    return null;
+  }
 };
